@@ -11,7 +11,7 @@ use output::OutputMode;
 use post_process::PostProcessor;
 use std::path::PathBuf;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(name = "parakeet-writer")]
 #[command(about = "Push-to-talk transcriber using Parakeet v3")]
 struct Args {
@@ -48,6 +48,8 @@ fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args = Args::parse();
+    log::debug!("Args: {:?}", args);
+
     let hotkey = input::parse_hotkey(&args.key)?;
     let model_path = model::ensure_model(args.model)?;
     let engine = model::load_engine(&model_path)?;
@@ -66,7 +68,7 @@ fn main() -> Result<()> {
         None
     };
 
-    println!("Listening for {:?}...", args.key);
+    println!("Listening for {:?}...", hotkey);
     println!("Hold the key to record, release to transcribe.");
 
     #[cfg(target_os = "macos")]

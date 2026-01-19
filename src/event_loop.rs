@@ -51,7 +51,7 @@ pub fn run(
         }
     });
 
-    let mut recorder = AudioRecorder::new()?;
+    let mut recorder = AudioRecorder::new();
     let mut is_recording = false;
 
     println!("Press Ctrl+C to exit.");
@@ -73,7 +73,7 @@ pub fn run(
                     &mut recorder,
                     &mut engine,
                     output_mode,
-                    &post_processor,
+                    post_processor.as_ref(),
                     &runtime,
                 );
             }
@@ -92,7 +92,7 @@ fn handle_transcription(
     recorder: &mut AudioRecorder,
     engine: &mut ParakeetEngine,
     output_mode: OutputMode,
-    post_processor: &Option<PostProcessor>,
+    post_processor: Option<&PostProcessor>,
     runtime: &tokio::runtime::Runtime,
 ) {
     match recorder.stop() {

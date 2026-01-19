@@ -68,15 +68,9 @@ fn download_model(dest_dir: &Path) -> Result<()> {
         if total_size > 0 {
             let percent = (downloaded * 100 / total_size) as usize;
             if percent != last_percent {
-                eprint!("\r[");
-                for i in 0..20 {
-                    if i < percent / 5 {
-                        eprint!("=");
-                    } else {
-                        eprint!(" ");
-                    }
-                }
-                eprint!("] {}%", percent);
+                let filled = percent / 5;
+                let bar = "=".repeat(filled) + &" ".repeat(20 - filled);
+                eprint!("\r[{}] {}%", bar, percent);
                 std::io::stderr().flush().ok();
                 last_percent = percent;
             }

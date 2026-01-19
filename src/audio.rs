@@ -6,6 +6,9 @@ use std::io::BufWriter;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+const DEFAULT_INPUT_SAMPLE_RATE: u32 = 48000;
+const TARGET_OUTPUT_SAMPLE_RATE: u32 = 16000;
+
 pub struct AudioRecorder {
     samples: Arc<Mutex<Vec<f32>>>,
     stream: Option<cpal::Stream>,
@@ -13,14 +16,20 @@ pub struct AudioRecorder {
     output_sample_rate: u32,
 }
 
-impl AudioRecorder {
-    pub fn new() -> Result<Self> {
-        Ok(Self {
+impl Default for AudioRecorder {
+    fn default() -> Self {
+        Self {
             samples: Arc::new(Mutex::new(Vec::new())),
             stream: None,
-            input_sample_rate: 48000,
-            output_sample_rate: 16000,
-        })
+            input_sample_rate: DEFAULT_INPUT_SAMPLE_RATE,
+            output_sample_rate: TARGET_OUTPUT_SAMPLE_RATE,
+        }
+    }
+}
+
+impl AudioRecorder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn start(&mut self) -> Result<()> {
@@ -111,6 +120,8 @@ impl AudioRecorder {
 
     pub fn stop(&mut self) -> Result<PathBuf> {
         self.stream = None;
+        // Brief delay to ensure the audio stream callback has finished
+        // processing any remaining samples before we read the buffer
         std::thread::sleep(std::time::Duration::from_millis(100));
 
         let samples = self.samples.lock().unwrap();
