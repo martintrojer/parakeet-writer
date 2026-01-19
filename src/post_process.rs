@@ -6,6 +6,8 @@ use ollama_rs::Ollama;
 const DEFAULT_PROMPT: &str = "Clean up this voice transcript for use as an AI coding prompt. \
 Remove filler words (um, uh, like, you know) and false starts. \
 Fix grammar and punctuation. If the speaker corrected themselves, keep only the correction. \
+Replace spoken punctuation and symbol names with their actual characters \
+(e.g., \"comma\" → ,, \"open paren\" → (, \"hash\" → #, \"greater than\" → >). \
 Preserve technical terms and abbreviations exactly as spoken (e.g., API, CLI, async, stdin). \
 Preserve the speaker's wording. Only restructure if the original is genuinely unclear. \
 Output only the cleaned text.";
