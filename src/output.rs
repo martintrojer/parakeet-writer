@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
 use clap::ValueEnum;
+use std::process::Command;
+
+#[cfg(target_os = "macos")]
 use std::io::Write;
-use std::process::{Command, Stdio};
+#[cfg(target_os = "macos")]
+use std::process::Stdio;
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum OutputMode {
