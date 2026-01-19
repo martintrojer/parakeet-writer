@@ -44,18 +44,20 @@ struct Args {
     ollama_model: String,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args = Args::parse();
     log::debug!("Args: {:?}", args);
 
     let hotkey = input::parse_hotkey(&args.key)?;
-    let model_path = model::ensure_model(args.model).await?;
 
-    // Model loading is blocking, run in spawn_blocking
-    let engine = tokio::task::spawn_blocking(move || model::load_engine(&model_path)).await??;
+    // Create runtime for async model download
+    let runtime = tokio::runtime::Runtime::new()?;
+    let model_path = runtime.block_on(model::ensure_model(args.model))?;
+    drop(runtime);
+
+    let engine = model::load_engine(&model_path)?;
 
     let post_processor = if args.post_process {
         println!(
@@ -71,11 +73,25 @@ async fn main() -> Result<()> {
         None
     };
 
-    println!("Listening for {:?}...", hotkey);
-    println!("Hold the key to record, release to transcribe.");
+    // Linux: find keyboards and pass to event loop
+    #[cfg(target_os = "linux")]
+    {
+        let keyboards = input::find_keyboards()?;
+        println!(
+            "Found {} keyboard(s). Listening for {:?}...",
+            keyboards.len(),
+            args.key
+        );
+        println!("Hold the key to record, release to transcribe.");
+        event_loop::run(engine, keyboards, hotkey, args.output, post_processor)
+    }
 
+    // macOS: use rdev (no keyboard discovery needed)
     #[cfg(target_os = "macos")]
-    println!("Note: On macOS, you may need to grant Accessibility permissions.");
-
-    event_loop::run(engine, hotkey, args.output, post_processor).await
+    {
+        println!("Listening for {:?}...", hotkey);
+        println!("Hold the key to record, release to transcribe.");
+        println!("Note: You may need to grant Accessibility permissions.");
+        event_loop::run(engine, hotkey, args.output, post_processor)
+    }
 }

@@ -1,6 +1,6 @@
 # parakeet-writer
 
-Minimal push-to-talk transcriber using Parakeet v3.
+Minimal push-to-talk transcriber using Parakeet v3. Supports Linux (Wayland) and macOS.
 
 ## Dependencies
 
@@ -9,13 +9,13 @@ Minimal push-to-talk transcriber using Parakeet v3.
 Build dependencies:
 ```bash
 # Fedora
-sudo dnf install libX11-devel libXi-devel libXtst-devel alsa-lib-devel
+sudo dnf install alsa-lib-devel
 
 # Debian/Ubuntu
-sudo apt install libx11-dev libxi-dev libxtst-dev libasound2-dev
+sudo apt install libasound2-dev
 
 # Arch
-sudo pacman -S libx11 libxi libxtst alsa-lib
+sudo pacman -S alsa-lib
 ```
 
 Runtime dependencies for Wayland text output:
@@ -39,11 +39,11 @@ Requires Accessibility permissions for keyboard monitoring and typing simulation
 
 These are pulled automatically via Cargo:
 - `transcribe-rs` (parakeet feature) - Parakeet v3 transcription engine
-- `rdev` - Cross-platform keyboard input
-- `cpal` - Cross-platform audio capture (requires ALSA dev library on Linux)
+- `evdev` (Linux) / `rdev` (macOS) - Keyboard input
+- `cpal` - Audio capture (requires ALSA dev library on Linux)
 - `hound` - WAV file writing
 - `clap` - CLI argument parsing
-- `ureq`, `flate2`, `tar` - Model download and extraction
+- `reqwest`, `flate2`, `tar` - Model download and extraction
 
 ### Model
 

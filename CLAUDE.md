@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Minimal push-to-talk transcriber using Parakeet v3. Records audio when hotkey is held, transcribes on release, outputs via typing or clipboard. Supports both Linux and macOS.
+Minimal push-to-talk transcriber using Parakeet v3. Records audio when hotkey is held, transcribes on release, outputs via typing or clipboard. Supports Linux (Wayland) and macOS.
 
 ## Build
 
@@ -24,12 +24,11 @@ cargo build --release
 
 | Purpose | Fedora | Debian/Ubuntu |
 |---------|--------|---------------|
-| X11 (keyboard) | `libX11-devel` | `libx11-dev` |
-| Xi (input) | `libXi-devel` | `libxi-dev` |
-| Xtst (testing) | `libXtst-devel` | `libxtst-dev` |
 | ALSA (audio) | `alsa-lib-devel` | `libasound2-dev` |
 
 **Linux Runtime Dependencies**: `wtype` and `wl-clipboard` for Wayland text output
+
+**Linux Keyboard Access**: Requires `/dev/input` access - add user to `input` group or run with sudo
 
 ## Code Quality
 
@@ -51,7 +50,7 @@ cargo clippy --fix --allow-dirty
 
 - `main()` - minimal entry point
 - Model Management - download, verify, load Parakeet model
-- Input Handling - cross-platform hotkey parsing (rdev)
+- Input Handling - evdev (Linux) or rdev (macOS) for keyboard events
 - Audio Recording - cpal-based 16kHz mono capture
 - Output - platform-specific text output (osascript/pbcopy on macOS, wtype/wl-copy on Linux)
 - Event Loop - keyboard event processing, record/transcribe flow
@@ -59,5 +58,6 @@ cargo clippy --fix --allow-dirty
 ## Dependencies
 
 - `transcribe-rs` v0.2.1 (pinned) with `ort` v2.0.0-rc.10 (pinned)
-- `rdev` for cross-platform keyboard event handling
+- `evdev` for Linux keyboard input via /dev/input
+- `rdev` for macOS keyboard input
 - Model auto-downloads to `~/.cache/parakeet-writer/`
