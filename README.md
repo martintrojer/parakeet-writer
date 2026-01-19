@@ -17,7 +17,7 @@ sudo apt install libasound2-dev
 sudo pacman -S alsa-lib
 ```
 
-For output, you need one of:
+For output, you need:
 - `wtype` - for auto-typing (Wayland)
 - `wl-clipboard` - for clipboard copy
 
@@ -50,13 +50,16 @@ cargo build --release
 
 ```bash
 # Run with default F9 hotkey (downloads model on first run)
+# Default output mode is "both" (types and copies to clipboard)
 ./target/release/parakeet-writer
 
 # Custom hotkey
 ./target/release/parakeet-writer --key ScrollLock
 
-# Copy to clipboard instead of typing
-./target/release/parakeet-writer --clipboard
+# Output modes
+./target/release/parakeet-writer --output typing     # Only type text
+./target/release/parakeet-writer --output clipboard  # Only copy to clipboard
+./target/release/parakeet-writer --output both       # Both (default)
 
 # Use a custom model path
 ./target/release/parakeet-writer --model /path/to/model
@@ -77,7 +80,7 @@ sudo ./target/release/parakeet-writer
 ## Options
 
 ```
--m, --model <PATH>    Path to model directory (auto-downloads if not specified)
--k, --key <KEY>       Hotkey (F1-F12, ScrollLock, Pause, Insert) [default: F9]
-    --clipboard       Copy to clipboard instead of typing
+-m, --model <PATH>     Path to model directory (auto-downloads if not specified)
+-k, --key <KEY>        Hotkey (F1-F12, ScrollLock, Pause, Insert) [default: F9]
+-o, --output <MODE>    Output mode: typing, clipboard, both [default: both]
 ```

@@ -1,5 +1,5 @@
 use crate::audio::AudioRecorder;
-use crate::output::output_text;
+use crate::output::{output_text, OutputMode};
 use anyhow::{Context, Result};
 use evdev::{Device, InputEventKind, Key};
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
@@ -14,7 +14,7 @@ pub fn run(
     mut engine: ParakeetEngine,
     keyboards: Vec<Device>,
     hotkey: Key,
-    clipboard: bool,
+    output_mode: OutputMode,
 ) -> Result<()> {
     let running = Arc::new(AtomicBool::new(true));
     let r = Arc::clone(&running);
@@ -60,7 +60,7 @@ pub fn run(
                                 &mut is_recording,
                                 &mut recorder,
                                 &mut engine,
-                                clipboard,
+                                output_mode,
                             );
                         }
                     }
@@ -80,7 +80,7 @@ fn handle_hotkey_event(
     is_recording: &mut bool,
     recorder: &mut AudioRecorder,
     engine: &mut ParakeetEngine,
-    clipboard: bool,
+    output_mode: OutputMode,
 ) {
     match value {
         1 if !*is_recording => {
@@ -94,7 +94,7 @@ fn handle_hotkey_event(
         0 if *is_recording => {
             println!("Transcribing...");
             *is_recording = false;
-            handle_transcription(recorder, engine, clipboard);
+            handle_transcription(recorder, engine, output_mode);
         }
         _ => {}
     }
@@ -103,7 +103,7 @@ fn handle_hotkey_event(
 fn handle_transcription(
     recorder: &mut AudioRecorder,
     engine: &mut ParakeetEngine,
-    clipboard: bool,
+    output_mode: OutputMode,
 ) {
     match recorder.stop() {
         Ok(wav_path) => {
@@ -113,7 +113,7 @@ fn handle_transcription(
                     log::debug!("Transcribed in {:.2?}", start.elapsed());
                     let text = result.text.trim();
                     if !text.is_empty() {
-                        if let Err(e) = output_text(text, clipboard) {
+                        if let Err(e) = output_text(text, output_mode) {
                             log::error!("Failed to output text: {}", e);
                         }
                     } else {

@@ -6,6 +6,7 @@ mod output;
 
 use anyhow::Result;
 use clap::Parser;
+use output::OutputMode;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -20,9 +21,9 @@ struct Args {
     #[arg(short, long, default_value = "F9")]
     key: String,
 
-    /// Copy transcription to clipboard instead of typing
-    #[arg(long)]
-    clipboard: bool,
+    /// Output mode: typing, clipboard, or both
+    #[arg(short, long, value_enum, default_value_t = OutputMode::Both)]
+    output: OutputMode,
 }
 
 fn main() -> Result<()> {
@@ -41,5 +42,5 @@ fn main() -> Result<()> {
     );
     println!("Hold the key to record, release to transcribe.");
 
-    event_loop::run(engine, keyboards, hotkey, args.clipboard)
+    event_loop::run(engine, keyboards, hotkey, args.output)
 }
