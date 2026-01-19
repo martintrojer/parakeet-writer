@@ -57,7 +57,7 @@ cargo clippy --fix --allow-dirty
 
 ## Dependencies
 
-- `transcribe-rs` v0.2.1 (pinned) with `ort` v2.0.0-rc.10 (pinned)
+- `transcribe-rs` v0.2.2 (pinned) with `ort` v2.0.0-rc.10 (pinned)
 - `evdev` for Linux keyboard input via /dev/input
 - `rdev` for macOS keyboard input
 - Model auto-downloads to `~/.cache/parakeet-writer/`

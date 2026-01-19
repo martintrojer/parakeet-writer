@@ -6,7 +6,7 @@ authors = ["Martin Trojer <martin.trojer@gmail.com>"]
 description = "Minimal push-to-talk transcriber using Parakeet v3"
 
 [dependencies]
-transcribe-rs = { version = "=0.2.1", features = ["parakeet"] }
+transcribe-rs = { version = "=0.2.2", features = ["parakeet"] }
 cpal = "0.15"
 hound = "3.5"
 env_logger = "0.10"
@@ -21,7 +21,7 @@ flate2 = "1"
 tar = "0.4"
 futures-util = "0.3"
 
-# Pin ort versions to match transcribe-rs 0.2.1 requirements
+# Pin ort versions to match transcribe-rs 0.2.2 requirements
 ort = "=2.0.0-rc.10"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "sync", "process", "time"] }
 ollama-rs = "0.3"
