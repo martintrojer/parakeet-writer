@@ -60,6 +60,11 @@ You can also specify a custom model path with `--model`.
 cargo build --release
 ```
 
+Or install to `~/.cargo/bin`:
+```bash
+cargo install --path .
+```
+
 ## Usage
 
 ```bash
