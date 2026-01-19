@@ -2,6 +2,7 @@
 name = "parakeet-writer"
 version = "0.1.0"
 edition = "2021"
+authors = ["Martin Trojer <martin.trojer@gmail.com>"]
 description = "Minimal push-to-talk transcriber using Parakeet v3"
 
 [dependencies]
