@@ -1,5 +1,6 @@
 use crate::audio::AudioRecorder;
 use crate::output::{output_text, OutputMode};
+use crate::post_process::PostProcessor;
 use anyhow::{Context, Result};
 use evdev::{Device, InputEventKind, Key};
 use nix::fcntl::{fcntl, FcntlArg, OFlag};
@@ -15,7 +16,10 @@ pub fn run(
     keyboards: Vec<Device>,
     hotkey: Key,
     output_mode: OutputMode,
+    post_processor: Option<PostProcessor>,
 ) -> Result<()> {
+    let runtime = tokio::runtime::Runtime::new()?;
+
     let running = Arc::new(AtomicBool::new(true));
     let r = Arc::clone(&running);
     ctrlc::set_handler(move || {
@@ -61,6 +65,8 @@ pub fn run(
                                 &mut recorder,
                                 &mut engine,
                                 output_mode,
+                                &post_processor,
+                                &runtime,
                             );
                         }
                     }
@@ -81,6 +87,8 @@ fn handle_hotkey_event(
     recorder: &mut AudioRecorder,
     engine: &mut ParakeetEngine,
     output_mode: OutputMode,
+    post_processor: &Option<PostProcessor>,
+    runtime: &tokio::runtime::Runtime,
 ) {
     match value {
         1 if !*is_recording => {
@@ -94,7 +102,7 @@ fn handle_hotkey_event(
         0 if *is_recording => {
             println!("Transcribing...");
             *is_recording = false;
-            handle_transcription(recorder, engine, output_mode);
+            handle_transcription(recorder, engine, output_mode, post_processor, runtime);
         }
         _ => {}
     }
@@ -104,6 +112,8 @@ fn handle_transcription(
     recorder: &mut AudioRecorder,
     engine: &mut ParakeetEngine,
     output_mode: OutputMode,
+    post_processor: &Option<PostProcessor>,
+    runtime: &tokio::runtime::Runtime,
 ) {
     match recorder.stop() {
         Ok(wav_path) => {
@@ -113,7 +123,20 @@ fn handle_transcription(
                     log::debug!("Transcribed in {:.2?}", start.elapsed());
                     let text = result.text.trim();
                     if !text.is_empty() {
-                        if let Err(e) = output_text(text, output_mode) {
+                        let final_text = if let Some(processor) = post_processor {
+                            println!("Post-processing...");
+                            match runtime.block_on(processor.process(text)) {
+                                Ok(processed) => processed,
+                                Err(e) => {
+                                    log::error!("Post-processing failed: {}", e);
+                                    text.to_string()
+                                }
+                            }
+                        } else {
+                            text.to_string()
+                        };
+
+                        if let Err(e) = output_text(&final_text, output_mode) {
                             log::error!("Failed to output text: {}", e);
                         }
                     } else {

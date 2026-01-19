@@ -24,3 +24,5 @@ tar = "0.4"
 
 # Pin ort versions to match transcribe-rs 0.2.1 requirements
 ort = "=2.0.0-rc.10"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+ollama-rs = "0.3"

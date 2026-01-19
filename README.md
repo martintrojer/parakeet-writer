@@ -80,7 +80,25 @@ sudo ./target/release/parakeet-writer
 ## Options
 
 ```
--m, --model <PATH>     Path to model directory (auto-downloads if not specified)
--k, --key <KEY>        Hotkey (F1-F12, ScrollLock, Pause, Insert) [default: F9]
--o, --output <MODE>    Output mode: typing, clipboard, both [default: both]
+-m, --model <PATH>         Path to model directory (auto-downloads if not specified)
+-k, --key <KEY>            Hotkey (F1-F12, ScrollLock, Pause, Insert) [default: F9]
+-o, --output <MODE>        Output mode: typing, clipboard, both [default: both]
+-p, --post-process         Enable post-processing via Ollama
+    --ollama-host <HOST>   Ollama host [default: http://localhost]
+    --ollama-port <PORT>   Ollama port [default: 11434]
+    --ollama-model <MODEL> Ollama model for post-processing [default: qwen2.5:1.5b]
+```
+
+## Post-processing
+
+When `--post-process` is enabled, transcripts are sent to Ollama for cleanup before output. This removes filler words (um, uh, like), fixes grammar and punctuation, and cleans up false starts.
+
+You need [Ollama](https://ollama.ai/) running locally with a model installed:
+
+```bash
+# Install and run Ollama, then pull a model
+ollama pull qwen2.5:1.5b
+
+# Run with post-processing
+./target/release/parakeet-writer --post-process
 ```
