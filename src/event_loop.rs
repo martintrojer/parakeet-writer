@@ -145,7 +145,13 @@ pub fn run(
             Ok(HotkeyEvent::Released) if is_recording => {
                 println!("Transcribing...");
                 is_recording = false;
-                handle_transcription(&mut recorder, &mut engine, output_mode, &post_processor, &runtime);
+                handle_transcription(
+                    &mut recorder,
+                    &mut engine,
+                    output_mode,
+                    &post_processor,
+                    &runtime,
+                );
             }
             Ok(_) => {}
             Err(mpsc::RecvTimeoutError::Timeout) => {}
