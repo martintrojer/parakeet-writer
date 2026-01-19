@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
 use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tar::Archive;
@@ -67,7 +68,6 @@ async fn download_model(dest_dir: &Path) -> Result<()> {
                 let filled = percent / 5;
                 let bar = "=".repeat(filled) + &" ".repeat(20 - filled);
                 eprint!("\r[{}] {}%", bar, percent);
-                use std::io::Write;
                 std::io::stderr().flush().ok();
                 last_percent = percent;
             }

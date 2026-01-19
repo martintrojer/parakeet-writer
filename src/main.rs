@@ -55,9 +55,7 @@ async fn main() -> Result<()> {
     let model_path = model::ensure_model(args.model).await?;
 
     // Model loading is blocking, run in spawn_blocking
-    let model_path_clone = model_path.clone();
-    let engine =
-        tokio::task::spawn_blocking(move || model::load_engine(&model_path_clone)).await??;
+    let engine = tokio::task::spawn_blocking(move || model::load_engine(&model_path)).await??;
 
     let post_processor = if args.post_process {
         println!(

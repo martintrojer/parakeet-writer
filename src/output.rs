@@ -28,8 +28,9 @@ pub async fn output_text(text: &str, mode: OutputMode) -> Result<()> {
             println!("Copied to clipboard: {}", text);
         }
         OutputMode::Both => {
-            type_text(text).await?;
-            copy_to_clipboard(text).await?;
+            let (type_result, clip_result) = tokio::join!(type_text(text), copy_to_clipboard(text));
+            type_result?;
+            clip_result?;
         }
     }
     Ok(())
