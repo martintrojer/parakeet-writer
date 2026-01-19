@@ -118,53 +118,62 @@ impl AudioRecorder {
         }
     }
 
-    pub fn stop(&mut self) -> Result<PathBuf> {
+    pub async fn stop(&mut self) -> Result<PathBuf> {
         self.stream = None;
         // Brief delay to ensure the audio stream callback has finished
         // processing any remaining samples before we read the buffer
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-        let samples = self.samples.lock().unwrap();
+        let samples = self.samples.lock().unwrap().clone();
+        let input_sample_rate = self.input_sample_rate;
+        let output_sample_rate = self.output_sample_rate;
 
-        // Resample to output rate if needed
-        let resampled = if self.input_sample_rate != self.output_sample_rate {
-            resample(&samples, self.input_sample_rate, self.output_sample_rate)
-        } else {
-            samples.clone()
-        };
+        // WAV writing is blocking (hound), run in spawn_blocking
+        let wav_path = tokio::task::spawn_blocking(move || {
+            // Resample to output rate if needed
+            let resampled = if input_sample_rate != output_sample_rate {
+                resample(&samples, input_sample_rate, output_sample_rate)
+            } else {
+                samples.clone()
+            };
 
-        let temp_file = tempfile::Builder::new()
-            .suffix(".wav")
-            .tempfile()?
-            .into_temp_path()
-            .keep()?;
+            let temp_file = tempfile::Builder::new()
+                .suffix(".wav")
+                .tempfile()?
+                .into_temp_path()
+                .keep()?;
 
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: self.output_sample_rate,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
+            let spec = hound::WavSpec {
+                channels: 1,
+                sample_rate: output_sample_rate,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            };
 
-        let file = File::create(&temp_file)?;
-        let mut writer = hound::WavWriter::new(BufWriter::new(file), spec)?;
-        for &sample in resampled.iter() {
-            let i16_sample =
-                (sample * i16::MAX as f32).clamp(i16::MIN as f32, i16::MAX as f32) as i16;
-            writer.write_sample(i16_sample)?;
-        }
-        writer.finalize()?;
+            let file = File::create(&temp_file)?;
+            let mut writer = hound::WavWriter::new(BufWriter::new(file), spec)?;
+            for &sample in resampled.iter() {
+                let i16_sample =
+                    (sample * i16::MAX as f32).clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+                writer.write_sample(i16_sample)?;
+            }
+            writer.finalize()?;
 
-        log::debug!(
-            "Recorded {} samples @ {}Hz -> {} samples @ {}Hz ({:.2}s)",
-            samples.len(),
-            self.input_sample_rate,
-            resampled.len(),
-            self.output_sample_rate,
-            resampled.len() as f64 / self.output_sample_rate as f64
-        );
+            log::debug!(
+                "Recorded {} samples @ {}Hz -> {} samples @ {}Hz ({:.2}s)",
+                samples.len(),
+                input_sample_rate,
+                resampled.len(),
+                output_sample_rate,
+                resampled.len() as f64 / output_sample_rate as f64
+            );
 
-        Ok(temp_file)
+            Ok::<PathBuf, anyhow::Error>(temp_file)
+        })
+        .await
+        .context("WAV writing task failed")??;
+
+        Ok(wav_path)
     }
 }
 

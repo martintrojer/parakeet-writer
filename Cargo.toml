@@ -17,11 +17,12 @@ anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 ctrlc = "3"
 dirs = "5"
-ureq = "3"
+reqwest = { version = "0.12", features = ["stream"] }
 flate2 = "1"
 tar = "0.4"
+futures-util = "0.3"
 
 # Pin ort versions to match transcribe-rs 0.2.1 requirements
 ort = "=2.0.0-rc.10"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "sync", "process", "time"] }
 ollama-rs = "0.3"

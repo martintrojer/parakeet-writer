@@ -1,10 +1,11 @@
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
+use futures_util::StreamExt;
 use std::fs::File;
-use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tar::Archive;
+use tokio::io::AsyncWriteExt;
 use transcribe_rs::engines::parakeet::{ParakeetEngine, ParakeetModelParams};
 use transcribe_rs::TranscriptionEngine;
 
@@ -31,39 +32,34 @@ fn verify_model(path: &Path) -> bool {
     encoder.exists() && decoder.exists() && vocab.exists()
 }
 
-fn download_model(dest_dir: &Path) -> Result<()> {
+async fn download_model(dest_dir: &Path) -> Result<()> {
     println!("Downloading Parakeet v3 model (~478 MB)...");
 
-    std::fs::create_dir_all(dest_dir.parent().unwrap_or(dest_dir))
+    tokio::fs::create_dir_all(dest_dir.parent().unwrap_or(dest_dir))
+        .await
         .context("Failed to create cache directory")?;
 
-    let response = ureq::get(MODEL_URL)
-        .call()
+    let response = reqwest::get(MODEL_URL)
+        .await
         .context("Failed to start download")?;
 
-    let total_size = response
-        .headers()
-        .get("content-length")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok())
-        .unwrap_or(0);
+    let total_size = response.content_length().unwrap_or(0);
 
     let temp_path = dest_dir.with_extension("tar.gz.tmp");
-    let mut file = File::create(&temp_path).context("Failed to create temp file")?;
+    let mut file = tokio::fs::File::create(&temp_path)
+        .await
+        .context("Failed to create temp file")?;
 
-    let mut reader = response.into_body().into_reader();
-    let mut buffer = [0u8; 8192];
+    let mut stream = response.bytes_stream();
     let mut downloaded: u64 = 0;
     let mut last_percent = 0;
 
-    loop {
-        let bytes_read = reader.read(&mut buffer).context("Download interrupted")?;
-        if bytes_read == 0 {
-            break;
-        }
-        file.write_all(&buffer[..bytes_read])
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.context("Download interrupted")?;
+        file.write_all(&chunk)
+            .await
             .context("Failed to write to file")?;
-        downloaded += bytes_read as u64;
+        downloaded += chunk.len() as u64;
 
         if total_size > 0 {
             let percent = (downloaded * 100 / total_size) as usize;
@@ -71,11 +67,15 @@ fn download_model(dest_dir: &Path) -> Result<()> {
                 let filled = percent / 5;
                 let bar = "=".repeat(filled) + &" ".repeat(20 - filled);
                 eprint!("\r[{}] {}%", bar, percent);
+                use std::io::Write;
                 std::io::stderr().flush().ok();
                 last_percent = percent;
             }
         }
     }
+
+    file.flush().await?;
+    drop(file);
 
     eprintln!(
         "\r[+] Download complete: {:.1} MB                    ",
@@ -83,20 +83,29 @@ fn download_model(dest_dir: &Path) -> Result<()> {
     );
 
     println!("Extracting model...");
-    let tar_gz = File::open(&temp_path).context("Failed to open archive")?;
-    let tar = GzDecoder::new(tar_gz);
-    let mut archive = Archive::new(tar);
-    archive
-        .unpack(dest_dir.parent().unwrap_or(dest_dir))
-        .context("Failed to extract archive")?;
 
-    std::fs::remove_file(&temp_path).ok();
+    // Archive extraction is blocking, run in spawn_blocking
+    let temp_path_clone = temp_path.clone();
+    let extract_dir = dest_dir.parent().unwrap_or(dest_dir).to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let tar_gz = File::open(&temp_path_clone).context("Failed to open archive")?;
+        let tar = GzDecoder::new(tar_gz);
+        let mut archive = Archive::new(tar);
+        archive
+            .unpack(&extract_dir)
+            .context("Failed to extract archive")?;
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .context("Extraction task failed")??;
+
+    tokio::fs::remove_file(&temp_path).await.ok();
     println!("[+] Model ready!");
 
     Ok(())
 }
 
-pub fn ensure_model(model_path: Option<PathBuf>) -> Result<PathBuf> {
+pub async fn ensure_model(model_path: Option<PathBuf>) -> Result<PathBuf> {
     let user_provided = model_path.is_some();
     let path = model_path.unwrap_or_else(default_model_path);
 
@@ -108,7 +117,7 @@ pub fn ensure_model(model_path: Option<PathBuf>) -> Result<PathBuf> {
         anyhow::bail!("Model not found at {:?}", path);
     }
 
-    download_model(&path)?;
+    download_model(&path).await?;
 
     if !verify_model(&path) {
         anyhow::bail!("Model verification failed after download");

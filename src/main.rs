@@ -44,15 +44,20 @@ struct Args {
     ollama_model: String,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args = Args::parse();
     log::debug!("Args: {:?}", args);
 
     let hotkey = input::parse_hotkey(&args.key)?;
-    let model_path = model::ensure_model(args.model)?;
-    let engine = model::load_engine(&model_path)?;
+    let model_path = model::ensure_model(args.model).await?;
+
+    // Model loading is blocking, run in spawn_blocking
+    let model_path_clone = model_path.clone();
+    let engine =
+        tokio::task::spawn_blocking(move || model::load_engine(&model_path_clone)).await??;
 
     let post_processor = if args.post_process {
         println!(
@@ -74,5 +79,5 @@ fn main() -> Result<()> {
     #[cfg(target_os = "macos")]
     println!("Note: On macOS, you may need to grant Accessibility permissions.");
 
-    event_loop::run(engine, hotkey, args.output, post_processor)
+    event_loop::run(engine, hotkey, args.output, post_processor).await
 }
