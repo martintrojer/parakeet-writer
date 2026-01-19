@@ -1,0 +1,25 @@
+[package]
+name = "parakeet-writer"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal push-to-talk transcriber using Parakeet v3"
+
+[dependencies]
+transcribe-rs = { version = "=0.2.1", features = ["parakeet"] }
+evdev = "0.12"
+cpal = "0.15"
+hound = "3.5"
+env_logger = "0.10"
+log = "0.4"
+tempfile = "3"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3"
+nix = { version = "0.29", features = ["fs"] }
+dirs = "5"
+ureq = "3"
+flate2 = "1"
+tar = "0.4"
+
+# Pin ort versions to match transcribe-rs 0.2.1 requirements
+ort = "=2.0.0-rc.10"
