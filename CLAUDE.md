@@ -18,8 +18,18 @@ cargo build --release
 
 ### Platform Notes
 
-- **macOS**: Requires Accessibility permissions for keyboard monitoring and typing simulation (System Settings > Privacy & Security > Accessibility)
-- **Linux**: Requires `wtype` and `wl-clipboard` for Wayland text output
+**macOS**: Requires Accessibility permissions for keyboard monitoring and typing simulation (System Settings > Privacy & Security > Accessibility)
+
+**Linux Build Dependencies**:
+
+| Purpose | Fedora | Debian/Ubuntu |
+|---------|--------|---------------|
+| X11 (keyboard) | `libX11-devel` | `libx11-dev` |
+| Xi (input) | `libXi-devel` | `libxi-dev` |
+| Xtst (testing) | `libXtst-devel` | `libxtst-dev` |
+| ALSA (audio) | `alsa-lib-devel` | `libasound2-dev` |
+
+**Linux Runtime Dependencies**: `wtype` and `wl-clipboard` for Wayland text output
 
 ## Code Quality
 
