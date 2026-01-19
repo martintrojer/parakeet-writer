@@ -51,7 +51,6 @@ fn main() -> Result<()> {
     let hotkey = input::parse_hotkey(&args.key)?;
     let model_path = model::ensure_model(args.model)?;
     let engine = model::load_engine(&model_path)?;
-    let keyboards = input::find_keyboards()?;
 
     let post_processor = if args.post_process {
         println!(
@@ -67,12 +66,11 @@ fn main() -> Result<()> {
         None
     };
 
-    println!(
-        "Found {} keyboard(s). Listening for {:?}...",
-        keyboards.len(),
-        args.key
-    );
+    println!("Listening for {:?}...", args.key);
     println!("Hold the key to record, release to transcribe.");
 
-    event_loop::run(engine, keyboards, hotkey, args.output, post_processor)
+    #[cfg(target_os = "macos")]
+    println!("Note: On macOS, you may need to grant Accessibility permissions.");
+
+    event_loop::run(engine, hotkey, args.output, post_processor)
 }

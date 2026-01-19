@@ -7,7 +7,7 @@ description = "Minimal push-to-talk transcriber using Parakeet v3"
 
 [dependencies]
 transcribe-rs = { version = "=0.2.1", features = ["parakeet"] }
-evdev = "0.12"
+rdev = "0.5"
 cpal = "0.15"
 hound = "3.5"
 env_logger = "0.10"
@@ -16,7 +16,6 @@ tempfile = "3"
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 ctrlc = "3"
-nix = { version = "0.29", features = ["fs"] }
 dirs = "5"
 ureq = "3"
 flate2 = "1"

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Minimal push-to-talk transcriber using Parakeet v3. Records audio when hotkey is held, transcribes on release, outputs via wtype or clipboard.
+Minimal push-to-talk transcriber using Parakeet v3. Records audio when hotkey is held, transcribes on release, outputs via typing or clipboard. Supports both Linux and macOS.
 
 ## Build
 
@@ -13,9 +13,13 @@ cargo build --release
 ## Run
 
 ```bash
-# Requires input group membership or sudo
 ./target/release/parakeet-writer
 ```
+
+### Platform Notes
+
+- **macOS**: Requires Accessibility permissions for keyboard monitoring and typing simulation (System Settings > Privacy & Security > Accessibility)
+- **Linux**: Requires `wtype` and `wl-clipboard` for Wayland text output
 
 ## Code Quality
 
@@ -37,11 +41,13 @@ cargo clippy --fix --allow-dirty
 
 - `main()` - minimal entry point
 - Model Management - download, verify, load Parakeet model
-- Input Handling - keyboard detection, hotkey parsing
+- Input Handling - cross-platform hotkey parsing (rdev)
 - Audio Recording - cpal-based 16kHz mono capture
+- Output - platform-specific text output (osascript/pbcopy on macOS, wtype/wl-copy on Linux)
 - Event Loop - keyboard event processing, record/transcribe flow
 
 ## Dependencies
 
 - `transcribe-rs` v0.2.1 (pinned) with `ort` v2.0.0-rc.10 (pinned)
+- `rdev` for cross-platform keyboard event handling
 - Model auto-downloads to `~/.cache/parakeet-writer/`
