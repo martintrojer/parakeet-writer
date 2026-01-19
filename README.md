@@ -4,29 +4,43 @@ Minimal push-to-talk transcriber using Parakeet v3.
 
 ## Dependencies
 
-### System packages
+### Linux
 
+Build dependencies:
 ```bash
 # Fedora
-sudo dnf install alsa-lib-devel
+sudo dnf install libX11-devel libXi-devel libXtst-devel alsa-lib-devel
 
 # Debian/Ubuntu
-sudo apt install libasound2-dev
+sudo apt install libx11-dev libxi-dev libxtst-dev libasound2-dev
 
 # Arch
-sudo pacman -S alsa-lib
+sudo pacman -S libx11 libxi libxtst alsa-lib
 ```
 
-For output, you need:
-- `wtype` - for auto-typing (Wayland)
-- `wl-clipboard` - for clipboard copy
+Runtime dependencies for Wayland text output:
+```bash
+# Fedora
+sudo dnf install wtype wl-clipboard
+
+# Debian/Ubuntu
+sudo apt install wtype wl-clipboard
+
+# Arch
+sudo pacman -S wtype wl-clipboard
+```
+
+### macOS
+
+Requires Accessibility permissions for keyboard monitoring and typing simulation:
+- System Settings > Privacy & Security > Accessibility
 
 ### Rust libraries
 
 These are pulled automatically via Cargo:
 - `transcribe-rs` (parakeet feature) - Parakeet v3 transcription engine
-- `evdev` - Linux keyboard input
-- `cpal` - Cross-platform audio capture (requires ALSA dev library)
+- `rdev` - Cross-platform keyboard input
+- `cpal` - Cross-platform audio capture (requires ALSA dev library on Linux)
 - `hound` - WAV file writing
 - `clap` - CLI argument parsing
 - `ureq`, `flate2`, `tar` - Model download and extraction
@@ -65,7 +79,7 @@ cargo build --release
 ./target/release/parakeet-writer --model /path/to/model
 ```
 
-### Keyboard access
+### Keyboard access (Linux)
 
 Reading keyboard input requires access to `/dev/input/event*` devices. Either:
 
