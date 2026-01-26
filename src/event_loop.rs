@@ -3,8 +3,9 @@ use crate::output::{output_text, OutputMode};
 use crate::post_process::PostProcessor;
 use anyhow::Result;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use transcribe_rs::engines::parakeet::ParakeetEngine;
 use transcribe_rs::TranscriptionEngine;
 
@@ -21,33 +22,20 @@ use std::os::unix::io::AsRawFd;
 // macOS-specific imports
 #[cfg(target_os = "macos")]
 use rdev::{listen, Event, EventType, Key};
-#[cfg(target_os = "macos")]
-use std::sync::mpsc::{self, Receiver, Sender};
 
-#[cfg(target_os = "macos")]
 #[derive(Debug)]
 enum HotkeyEvent {
     Pressed,
     Released,
 }
 
-// Linux implementation using evdev
+// Linux: start keyboard listener thread
 #[cfg(target_os = "linux")]
-pub fn run(
-    mut engine: ParakeetEngine,
-    keyboards: Vec<Device>,
+fn start_keyboard_listener(
+    mut keyboards: Vec<Device>,
     hotkey: Key,
-    output_mode: OutputMode,
-    post_processor: Option<PostProcessor>,
-) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-
-    let running = Arc::new(AtomicBool::new(true));
-    let r = Arc::clone(&running);
-    ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
-    })?;
-
+    running: Arc<AtomicBool>,
+) -> Result<Receiver<HotkeyEvent>> {
     // Set keyboards to non-blocking mode
     for kb in &keyboards {
         let fd = kb.as_raw_fd();
@@ -56,60 +44,40 @@ pub fn run(
         fcntl(fd, FcntlArg::F_SETFL(flags)).context("Failed to set non-blocking")?;
     }
 
-    let mut keyboards = keyboards;
-    let mut recorder = AudioRecorder::new();
-    let mut is_recording = false;
+    let (tx, rx): (Sender<HotkeyEvent>, Receiver<HotkeyEvent>) = mpsc::channel();
 
-    println!("Press Ctrl+C to exit.");
-
-    while running.load(Ordering::SeqCst) {
-        for keyboard in &mut keyboards {
-            while let Ok(events) = keyboard.fetch_events() {
-                for event in events {
-                    if let InputEventKind::Key(key) = event.kind() {
-                        if key == hotkey {
-                            handle_hotkey_event_linux(
-                                event.value(),
-                                &mut is_recording,
-                                &mut recorder,
-                                &mut engine,
-                                output_mode,
-                                &post_processor,
-                                &runtime,
-                            );
+    std::thread::spawn(move || {
+        while running.load(Ordering::SeqCst) {
+            for keyboard in &mut keyboards {
+                while let Ok(events) = keyboard.fetch_events() {
+                    for event in events {
+                        if let InputEventKind::Key(key) = event.kind() {
+                            if key == hotkey {
+                                let hotkey_event = match event.value() {
+                                    1 => Some(HotkeyEvent::Pressed),
+                                    0 => Some(HotkeyEvent::Released),
+                                    _ => None,
+                                };
+                                if let Some(e) = hotkey_event {
+                                    let _ = tx.send(e);
+                                }
+                            }
                         }
                     }
                 }
             }
+            std::thread::sleep(Duration::from_millis(10));
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
+    });
 
-    engine.unload_model();
-    println!("\nExiting.");
-    Ok(())
+    Ok(rx)
 }
 
-// macOS implementation using rdev
+// macOS: start keyboard listener thread
 #[cfg(target_os = "macos")]
-pub fn run(
-    mut engine: ParakeetEngine,
-    hotkey: Key,
-    output_mode: OutputMode,
-    post_processor: Option<PostProcessor>,
-) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-
-    let running = Arc::new(AtomicBool::new(true));
-    let r = Arc::clone(&running);
-    ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
-    })?;
-
+fn start_keyboard_listener(hotkey: Key, running: Arc<AtomicBool>) -> Result<Receiver<HotkeyEvent>> {
     let (tx, rx): (Sender<HotkeyEvent>, Receiver<HotkeyEvent>) = mpsc::channel();
 
-    // Spawn keyboard listener thread
-    let running_clone = Arc::clone(&running);
     std::thread::spawn(move || {
         let callback = move |event: Event| match event.event_type {
             EventType::KeyPress(key) if key == hotkey => {
@@ -123,17 +91,66 @@ pub fn run(
 
         if let Err(e) = listen(callback) {
             log::error!("Error listening to keyboard events: {:?}", e);
-            running_clone.store(false, Ordering::SeqCst);
+            running.store(false, Ordering::SeqCst);
         }
     });
 
+    Ok(rx)
+}
+
+// Linux entry point
+#[cfg(target_os = "linux")]
+pub fn run(
+    engine: ParakeetEngine,
+    keyboards: Vec<Device>,
+    hotkey: Key,
+    output_mode: OutputMode,
+    post_processor: Option<PostProcessor>,
+) -> Result<()> {
+    let running = Arc::new(AtomicBool::new(true));
+    let r = Arc::clone(&running);
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    })?;
+
+    let rx = start_keyboard_listener(keyboards, hotkey, Arc::clone(&running))?;
+    run_event_loop(engine, rx, output_mode, post_processor, running)
+}
+
+// macOS entry point
+#[cfg(target_os = "macos")]
+pub fn run(
+    engine: ParakeetEngine,
+    hotkey: Key,
+    output_mode: OutputMode,
+    post_processor: Option<PostProcessor>,
+) -> Result<()> {
+    let running = Arc::new(AtomicBool::new(true));
+    let r = Arc::clone(&running);
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    })?;
+
+    let rx = start_keyboard_listener(hotkey, Arc::clone(&running))?;
+    run_event_loop(engine, rx, output_mode, post_processor, running)
+}
+
+// Unified event loop for both platforms
+fn run_event_loop(
+    mut engine: ParakeetEngine,
+    rx: Receiver<HotkeyEvent>,
+    output_mode: OutputMode,
+    post_processor: Option<PostProcessor>,
+    running: Arc<AtomicBool>,
+) -> Result<()> {
+    let runtime = tokio::runtime::Runtime::new()?;
     let mut recorder = AudioRecorder::new();
     let mut is_recording = false;
 
     println!("Press Ctrl+C to exit.");
 
     while running.load(Ordering::SeqCst) {
-        match rx.recv_timeout(std::time::Duration::from_millis(100)) {
+        match rx.recv_timeout(Duration::from_millis(100)) {
             Ok(HotkeyEvent::Pressed) if !is_recording => {
                 println!("Recording...");
                 if let Err(e) = recorder.start() {
@@ -144,7 +161,7 @@ pub fn run(
             }
             Ok(HotkeyEvent::Released) if is_recording => {
                 // Continue recording briefly to capture trailing audio
-                std::thread::sleep(std::time::Duration::from_millis(250));
+                std::thread::sleep(Duration::from_millis(250));
                 println!("Transcribing...");
                 is_recording = false;
                 handle_transcription(
@@ -164,36 +181,6 @@ pub fn run(
     engine.unload_model();
     println!("\nExiting.");
     Ok(())
-}
-
-#[cfg(target_os = "linux")]
-fn handle_hotkey_event_linux(
-    value: i32,
-    is_recording: &mut bool,
-    recorder: &mut AudioRecorder,
-    engine: &mut ParakeetEngine,
-    output_mode: OutputMode,
-    post_processor: &Option<PostProcessor>,
-    runtime: &tokio::runtime::Runtime,
-) {
-    match value {
-        1 if !*is_recording => {
-            println!("Recording...");
-            if let Err(e) = recorder.start() {
-                log::error!("Failed to start recording: {}", e);
-                return;
-            }
-            *is_recording = true;
-        }
-        0 if *is_recording => {
-            // Continue recording briefly to capture trailing audio
-            std::thread::sleep(std::time::Duration::from_millis(250));
-            println!("Transcribing...");
-            *is_recording = false;
-            handle_transcription(recorder, engine, output_mode, post_processor, runtime);
-        }
-        _ => {}
-    }
 }
 
 fn handle_transcription(
