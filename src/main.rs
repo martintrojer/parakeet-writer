@@ -44,19 +44,15 @@ struct Args {
     ollama_model: String,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args = Args::parse();
     log::debug!("Args: {:?}", args);
 
     let hotkey = input::parse_hotkey(&args.key)?;
-
-    // Create runtime for async model download
-    let runtime = tokio::runtime::Runtime::new()?;
-    let model_path = runtime.block_on(model::ensure_model(args.model))?;
-    drop(runtime);
-
+    let model_path = model::ensure_model(args.model).await?;
     let engine = model::load_engine(&model_path)?;
 
     let post_processor = if args.post_process {
@@ -83,7 +79,7 @@ fn main() -> Result<()> {
             args.key
         );
         println!("Hold the key to record, release to transcribe.");
-        event_loop::run(engine, keyboards, hotkey, args.output, post_processor)
+        event_loop::run(engine, keyboards, hotkey, args.output, post_processor).await
     }
 
     // macOS: use rdev (no keyboard discovery needed)
@@ -92,6 +88,6 @@ fn main() -> Result<()> {
         println!("Listening for {:?}...", hotkey);
         println!("Hold the key to record, release to transcribe.");
         println!("Note: You may need to grant Accessibility permissions.");
-        event_loop::run(engine, hotkey, args.output, post_processor)
+        event_loop::run(engine, hotkey, args.output, post_processor).await
     }
 }
