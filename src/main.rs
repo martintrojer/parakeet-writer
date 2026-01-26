@@ -40,7 +40,7 @@ struct Args {
     ollama_port: u16,
 
     /// Ollama model for post-processing
-    #[arg(long, default_value = "qwen2.5:1.5b")]
+    #[arg(long, default_value = "qwen3:1.7b")]
     ollama_model: String,
 }
 

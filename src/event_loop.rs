@@ -143,6 +143,8 @@ pub fn run(
                 is_recording = true;
             }
             Ok(HotkeyEvent::Released) if is_recording => {
+                // Continue recording briefly to capture trailing audio
+                std::thread::sleep(std::time::Duration::from_millis(250));
                 println!("Transcribing...");
                 is_recording = false;
                 handle_transcription(
@@ -184,6 +186,8 @@ fn handle_hotkey_event_linux(
             *is_recording = true;
         }
         0 if *is_recording => {
+            // Continue recording briefly to capture trailing audio
+            std::thread::sleep(std::time::Duration::from_millis(250));
             println!("Transcribing...");
             *is_recording = false;
             handle_transcription(recorder, engine, output_mode, post_processor, runtime);

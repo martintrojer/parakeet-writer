@@ -1,6 +1,7 @@
 use anyhow::Result;
 use ollama_rs::generation::chat::request::ChatMessageRequest;
 use ollama_rs::generation::chat::ChatMessage;
+use ollama_rs::generation::parameters::KeepAlive;
 use ollama_rs::Ollama;
 
 const DEFAULT_PROMPT: &str = "Clean up this voice transcript for use as an AI coding prompt. \
@@ -31,7 +32,9 @@ impl PostProcessor {
             ChatMessage::user(text.to_string()),
         ];
 
-        let request = ChatMessageRequest::new(self.model.clone(), messages);
+        let request = ChatMessageRequest::new(self.model.clone(), messages)
+            .think(false)
+            .keep_alive(KeepAlive::Indefinitely);
         let response = self.ollama.send_chat_messages(request).await?;
 
         Ok(response.message.content.trim().to_string())
