@@ -42,13 +42,19 @@ struct Args {
     /// Ollama model for post-processing
     #[arg(long, default_value = "qwen3:1.7b")]
     ollama_model: String,
+
+    /// Enable verbose (debug) logging
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-
     let args = Args::parse();
+
+    let log_level = if args.verbose { "debug" } else { "info" };
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(log_level)).init();
+
     log::debug!("Args: {:?}", args);
 
     let hotkey = input::parse_hotkey(&args.key)?;
