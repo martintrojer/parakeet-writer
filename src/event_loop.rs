@@ -11,6 +11,8 @@ use transcribe_rs::TranscriptionEngine;
 
 // Linux-specific imports
 #[cfg(target_os = "linux")]
+use crate::input::find_keyboards;
+#[cfg(target_os = "linux")]
 use anyhow::Context;
 #[cfg(target_os = "linux")]
 use evdev::{Device, InputEventKind, Key};
@@ -29,42 +31,94 @@ enum HotkeyEvent {
     Released,
 }
 
-// Linux: start keyboard listener thread
+// Linux: set non-blocking mode on keyboard devices
 #[cfg(target_os = "linux")]
-fn start_keyboard_listener(
-    mut keyboards: Vec<Device>,
-    hotkey: Key,
-    running: Arc<AtomicBool>,
-    tx: Sender<HotkeyEvent>,
-) -> Result<()> {
-    // Set keyboards to non-blocking mode
-    for kb in &keyboards {
+fn set_nonblocking(keyboards: &[Device]) -> Result<()> {
+    for kb in keyboards {
         let fd = kb.as_raw_fd();
         let flags = fcntl(fd, FcntlArg::F_GETFL).context("Failed to get fd flags")?;
         let flags = OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK;
         fcntl(fd, FcntlArg::F_SETFL(flags)).context("Failed to set non-blocking")?;
     }
+    Ok(())
+}
+
+// Linux: start keyboard listener thread
+#[cfg(target_os = "linux")]
+fn start_keyboard_listener(
+    keyboards: Vec<Device>,
+    hotkey: Key,
+    running: Arc<AtomicBool>,
+    tx: Sender<HotkeyEvent>,
+) -> Result<()> {
+    set_nonblocking(&keyboards)?;
 
     std::thread::spawn(move || {
+        let mut keyboards = keyboards;
+        let mut last_rescan = std::time::Instant::now();
+        let mut had_error = false;
+
+        // Minimum interval between keyboard rescans
+        const RESCAN_INTERVAL: Duration = Duration::from_secs(10);
+
         while running.load(Ordering::SeqCst) {
+            // Check if we need to rescan keyboards (after error and interval passed)
+            if had_error && last_rescan.elapsed() >= RESCAN_INTERVAL {
+                log::info!("Keyboard error detected, rescanning devices...");
+                match find_keyboards() {
+                    Ok(new_keyboards) => {
+                        log::info!(
+                            "Keyboards reconnected: found {} device(s)",
+                            new_keyboards.len()
+                        );
+                        if set_nonblocking(&new_keyboards).is_ok() {
+                            keyboards = new_keyboards;
+                            had_error = false;
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to rescan keyboards: {}", e);
+                    }
+                }
+                last_rescan = std::time::Instant::now();
+            }
+
+            let mut any_error = false;
+
             for keyboard in &mut keyboards {
-                while let Ok(events) = keyboard.fetch_events() {
-                    for event in events {
-                        if let InputEventKind::Key(key) = event.kind() {
-                            if key == hotkey {
-                                let hotkey_event = match event.value() {
-                                    1 => Some(HotkeyEvent::Pressed),
-                                    0 => Some(HotkeyEvent::Released),
-                                    _ => None,
-                                };
-                                if let Some(e) = hotkey_event {
-                                    let _ = tx.blocking_send(e);
+                match keyboard.fetch_events() {
+                    Ok(events) => {
+                        for event in events {
+                            if let InputEventKind::Key(key) = event.kind() {
+                                if key == hotkey {
+                                    let hotkey_event = match event.value() {
+                                        1 => Some(HotkeyEvent::Pressed),
+                                        0 => Some(HotkeyEvent::Released),
+                                        _ => None,
+                                    };
+                                    if let Some(e) = hotkey_event {
+                                        let _ = tx.blocking_send(e);
+                                    }
                                 }
                             }
                         }
                     }
+                    Err(e) => {
+                        // EAGAIN/EWOULDBLOCK is expected for non-blocking reads
+                        if e.raw_os_error() != Some(libc::EAGAIN)
+                            && e.raw_os_error() != Some(libc::EWOULDBLOCK)
+                        {
+                            log::debug!("Keyboard read error: {}", e);
+                            any_error = true;
+                        }
+                    }
                 }
             }
+
+            if any_error {
+                had_error = true;
+            }
+
             std::thread::sleep(Duration::from_millis(10));
         }
     });

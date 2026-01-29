@@ -1688,6 +1688,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "hound",
+ "libc",
  "log",
  "nix 0.29.0",
  "ollama-rs",
