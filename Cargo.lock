@@ -890,6 +890,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
+name = "hotkey-listener"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3fe63e448d2377f15ec38e4eacaa55072e1fe77017a49e68028d8b6760f961a"
+dependencies = [
+ "anyhow",
+ "evdev",
+ "libc",
+ "log",
+ "nix 0.29.0",
+ "rdev",
+]
+
+[[package]]
 name = "hound"
 version = "3.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1684,16 +1698,13 @@ dependencies = [
  "ctrlc",
  "dirs",
  "env_logger",
- "evdev",
  "flate2",
  "futures-util",
+ "hotkey-listener",
  "hound",
- "libc",
  "log",
- "nix 0.29.0",
  "ollama-rs",
  "ort",
- "rdev",
  "reqwest",
  "tar",
  "tempfile",

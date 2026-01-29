@@ -1,12 +1,12 @@
 mod audio;
 mod event_loop;
-mod input;
 mod model;
 mod output;
 mod post_process;
 
 use anyhow::Result;
 use clap::Parser;
+use hotkey_listener::{parse_hotkey, HotkeyListenerBuilder};
 use output::OutputMode;
 use post_process::PostProcessor;
 use std::path::PathBuf;
@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
 
     log::debug!("Args: {:?}", args);
 
-    let hotkey = input::parse_hotkey(&args.key)?;
+    let hotkey = parse_hotkey(&args.key)?;
     let model_path = model::ensure_model(args.model).await?;
     let engine = model::load_engine(&model_path)?;
 
@@ -75,25 +75,16 @@ async fn main() -> Result<()> {
         None
     };
 
-    // Linux: find keyboards and pass to event loop
-    #[cfg(target_os = "linux")]
-    {
-        let keyboards = input::find_keyboards()?;
-        println!(
-            "Found {} keyboard(s). Listening for {:?}...",
-            keyboards.len(),
-            args.key
-        );
-        println!("Hold the key to record, release to transcribe.");
-        event_loop::run(engine, keyboards, hotkey, args.output, post_processor).await
-    }
+    // Build the hotkey listener
+    let listener = HotkeyListenerBuilder::new()
+        .add_hotkey(hotkey.clone())
+        .build()?;
 
-    // macOS: use rdev (no keyboard discovery needed)
+    println!("Listening for {:?}...", args.key);
+    println!("Hold the key to record, release to transcribe.");
+
     #[cfg(target_os = "macos")]
-    {
-        println!("Listening for {:?}...", hotkey);
-        println!("Hold the key to record, release to transcribe.");
-        println!("Note: You may need to grant Accessibility permissions.");
-        event_loop::run(engine, hotkey, args.output, post_processor).await
-    }
+    println!("Note: You may need to grant Accessibility permissions.");
+
+    event_loop::run(engine, listener, args.output, post_processor).await
 }
