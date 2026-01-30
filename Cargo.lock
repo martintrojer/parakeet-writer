@@ -891,9 +891,9 @@ checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
 name = "hotkey-listener"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3fe63e448d2377f15ec38e4eacaa55072e1fe77017a49e68028d8b6760f961a"
+checksum = "386dcb0d014376a6c3ca2622a589bfe35b53ecb93edf5d9d22fa6b1f259f6403"
 dependencies = [
  "anyhow",
  "evdev",

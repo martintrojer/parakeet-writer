@@ -75,10 +75,11 @@ async fn main() -> Result<()> {
         None
     };
 
-    // Build the hotkey listener
-    let listener = HotkeyListenerBuilder::new()
-        .add_hotkey(hotkey.clone())
-        .build()?;
+    // Build and start the hotkey listener
+    let handle = HotkeyListenerBuilder::new()
+        .add_hotkey(hotkey)
+        .build()?
+        .start()?;
 
     println!("Listening for {:?}...", args.key);
     println!("Hold the key to record, release to transcribe.");
@@ -86,5 +87,5 @@ async fn main() -> Result<()> {
     #[cfg(target_os = "macos")]
     println!("Note: You may need to grant Accessibility permissions.");
 
-    event_loop::run(engine, listener, args.output, post_processor).await
+    event_loop::run(engine, handle, args.output, post_processor).await
 }

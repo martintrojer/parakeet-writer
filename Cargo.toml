@@ -6,7 +6,7 @@ authors = ["Martin Trojer <martin.trojer@gmail.com>"]
 description = "Minimal push-to-talk transcriber using Parakeet v3"
 
 [dependencies]
-hotkey-listener = "0.2"
+hotkey-listener = "0.3"
 transcribe-rs = { version = "=0.2.2", features = ["parakeet"] }
 cpal = "0.15"
 hound = "3.5"

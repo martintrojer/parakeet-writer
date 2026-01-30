@@ -2,7 +2,7 @@ use crate::audio::AudioRecorder;
 use crate::output::{output_text, OutputMode};
 use crate::post_process::PostProcessor;
 use anyhow::Result;
-use hotkey_listener::{HotkeyEvent, HotkeyListener};
+use hotkey_listener::{HotkeyEvent, HotkeyListenerHandle};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -11,7 +11,7 @@ use transcribe_rs::TranscriptionEngine;
 
 pub async fn run(
     engine: ParakeetEngine,
-    listener: HotkeyListener,
+    handle: HotkeyListenerHandle,
     output_mode: OutputMode,
     post_processor: Option<PostProcessor>,
 ) -> Result<()> {
@@ -21,14 +21,12 @@ pub async fn run(
         r.store(false, Ordering::SeqCst);
     })?;
 
-    let rx = listener.start(Arc::clone(&running))?;
-
-    run_event_loop(engine, rx, output_mode, post_processor, running).await
+    run_event_loop(engine, handle, output_mode, post_processor, running).await
 }
 
 async fn run_event_loop(
     engine: ParakeetEngine,
-    rx: std::sync::mpsc::Receiver<HotkeyEvent>,
+    handle: HotkeyListenerHandle,
     output_mode: OutputMode,
     post_processor: Option<PostProcessor>,
     running: Arc<AtomicBool>,
@@ -40,7 +38,7 @@ async fn run_event_loop(
     println!("Press Ctrl+C to exit.");
 
     while running.load(Ordering::SeqCst) {
-        match rx.recv_timeout(Duration::from_millis(100)) {
+        match handle.recv_timeout(Duration::from_millis(100)) {
             Ok(event) => match event {
                 HotkeyEvent::Pressed(0) if !is_recording => {
                     println!("Recording...");
