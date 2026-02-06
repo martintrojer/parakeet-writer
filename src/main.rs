@@ -43,6 +43,12 @@ struct Args {
     #[arg(long, default_value = "qwen3:1.7b")]
     ollama_model: String,
 
+    #[arg(long)]
+    prompt: Option<String>,
+
+    #[arg(long)]
+    prompt_file: Option<PathBuf>,
+
     /// Enable verbose (debug) logging
     #[arg(short, long)]
     verbose: bool,
@@ -61,6 +67,12 @@ async fn main() -> Result<()> {
     let model_path = model::ensure_model(args.model).await?;
     let engine = model::load_engine(&model_path)?;
 
+    let custom_prompt = if let Some(path) = &args.prompt_file {
+        Some(std::fs::read_to_string(path)?)
+    } else {
+        args.prompt.clone()
+    };
+
     let post_processor = if args.post_process {
         println!(
             "Post-processing enabled via Ollama ({}:{}, model: {})",
@@ -70,6 +82,7 @@ async fn main() -> Result<()> {
             &args.ollama_host,
             args.ollama_port,
             &args.ollama_model,
+            custom_prompt,
         ))
     } else {
         None

@@ -17,10 +17,11 @@ Output only the cleaned text.";
 pub struct PostProcessor {
     ollama: Ollama,
     model: String,
+    prompt: String,
 }
 
 impl PostProcessor {
-    pub fn new(host: &str, port: u16, model: &str) -> Self {
+    pub fn new(host: &str, port: u16, model: &str, custom_prompt: Option<String>) -> Self {
         // Configure client to handle stale connections after long idle periods
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10)) // Fast fail on dead connections
@@ -33,13 +34,14 @@ impl PostProcessor {
         Self {
             ollama: Ollama::new_with_client(host.to_string(), port, client),
             model: model.to_string(),
+            prompt: custom_prompt.unwrap_or_else(|| DEFAULT_PROMPT.to_string()),
         }
     }
 
     pub async fn process(&self, text: &str) -> Result<String> {
         let total_start = Instant::now();
         let messages = vec![
-            ChatMessage::system(DEFAULT_PROMPT.to_string()),
+            ChatMessage::system(self.prompt.clone()),
             ChatMessage::user(text.to_string()),
         ];
 
