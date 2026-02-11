@@ -7,6 +7,46 @@ use std::process::Stdio;
 #[cfg(target_os = "macos")]
 use tokio::io::AsyncWriteExt;
 
+/// Send a desktop notification (fire-and-forget).
+pub fn notify(summary: &str, body: &str) {
+    let summary = summary.to_string();
+    let body = body.to_string();
+    tokio::spawn(async move {
+        let _ = send_notification(&summary, &body).await;
+    });
+}
+
+#[cfg(target_os = "linux")]
+async fn send_notification(summary: &str, body: &str) -> Result<()> {
+    Command::new("notify-send")
+        .arg("-a")
+        .arg("parakeet-writer")
+        .arg("-t")
+        .arg("3000")
+        .arg(summary)
+        .arg(body)
+        .status()
+        .await
+        .context("Failed to send notification (is notify-send installed?)")?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+async fn send_notification(summary: &str, body: &str) -> Result<()> {
+    let script = format!(
+        r#"display notification "{}" with title "{}""#,
+        body.replace('\\', "\\\\").replace('"', "\\\""),
+        summary.replace('\\', "\\\\").replace('"', "\\\""),
+    );
+    Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .status()
+        .await
+        .context("Failed to send notification via osascript")?;
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum OutputMode {
     /// Type text directly
