@@ -1,5 +1,5 @@
 use crate::audio::AudioRecorder;
-use crate::output::{output_text, OutputMode};
+use crate::output::{notify, output_text, OutputMode};
 use crate::post_process::PostProcessor;
 use anyhow::Result;
 use hotkey_listener::{HotkeyEvent, HotkeyListenerHandle};
@@ -42,8 +42,10 @@ async fn run_event_loop(
             Ok(event) => match event {
                 HotkeyEvent::Pressed(0) if !is_recording => {
                     println!("Recording...");
+                    notify("Recording", "Listening...");
                     if let Err(e) = recorder.start() {
                         log::error!("Failed to start recording: {}", e);
+                        notify("Error", "Failed to start recording");
                         continue;
                     }
                     is_recording = true;
@@ -118,13 +120,28 @@ async fn handle_transcription(
 
                         if let Err(e) = output_text(&final_text, output_mode).await {
                             log::error!("Failed to output text: {}", e);
+                            notify("Error", "Failed to output text");
+                        } else {
+                            let preview = if final_text.len() > 80 {
+                                format!("{}...", &final_text[..80])
+                            } else {
+                                final_text.clone()
+                            };
+                            notify("Transcribed", &preview);
                         }
                     } else {
                         println!("(no speech detected)");
+                        notify("No speech detected", "");
                     }
                 }
-                Ok(Err(e)) => log::error!("Transcription failed: {}", e),
-                Err(e) => log::error!("Transcription task failed: {}", e),
+                Ok(Err(e)) => {
+                    log::error!("Transcription failed: {}", e);
+                    notify("Error", "Transcription failed");
+                }
+                Err(e) => {
+                    log::error!("Transcription task failed: {}", e);
+                    notify("Error", "Transcription failed");
+                }
             }
             let _ = std::fs::remove_file(wav_path);
         }
